@@ -34,10 +34,10 @@ typedef struct {
     OrderItem orderList[MAX_ORDER_ITEMS];
     int orderCount;
     char datetime[20];
-    int status;  // 1=就餐 2=打包
+    int status;  // 1=就餐 2=打包 0=已结账
 } Customer;
 
-// 全局数据（简易版，实际可文件存储）
+// 全局数据
 Dish dishes[MAX_DISH];
 int dishCount = 0;
 
@@ -75,7 +75,7 @@ Table* findTableById(int id) {
 
 Customer* findCustomer(int tableId, char* phone) {
     for(int i=0; i<customerCount; i++) {
-        if(customers[i].tableId == tableId && strcmp(customers[i].phone, phone)==0) {
+        if(customers[i].tableId == tableId && strcmp(customers[i].phone, phone)==0 && customers[i].status != 0) {
             return &customers[i];
         }
     }
@@ -213,7 +213,7 @@ void modifyTable() {
     printf("修改成功。\n");
 }
 
-// ======= 用餐者登录 =======
+// ======= 用餐者登录注册 =======
 Customer* userRegister() {
     printf("请输入桌号（三位整数）: ");
     int tableId; scanf("%d", &tableId);
@@ -249,7 +249,7 @@ Customer* userRegister() {
     strcpy(c.name, name);
     c.orderCount = 0;
     getCurrentDateTime(c.datetime, sizeof(c.datetime));
-    c.status = 1;
+    c.status = 1; // 默认就餐
 
     customers[customerCount++] = c;
     printf("注册成功！您的编号是%lld\n", c.customerId);
@@ -275,7 +275,6 @@ void userOrder(Customer *cust) {
             printf("数量必须大于0。\n");
             continue;
         }
-        // 检查是否已点过该菜
         int found = 0;
         for(int i=0; i<cust->orderCount; i++) {
             if(cust->orderList[i].dishId == dishId) {
@@ -299,6 +298,10 @@ void userOrder(Customer *cust) {
 
 // 显示用餐者订单详情
 void showCustomerOrder(Customer *cust) {
+    if(cust->orderCount == 0) {
+        printf("您还没有点餐。\n");
+        return;
+    }
     printf("订单详情：\n");
     printf("菜名\t单价\t数量\t小计\n");
     float total = 0.0;
@@ -319,112 +322,168 @@ void userPay(Customer *cust) {
     printf("确认结账吗？（y/n）: ");
     char ch; scanf(" %c", &ch);
     if(ch == 'y' || ch == 'Y') {
-        cust->status = 0;  // 标记已结账
-        printf("结账成功！欢迎下次光临。\n");
+        cust->status = 0; // 标记已结账
+        printf("结账成功，欢迎下次光临！\n");
     } else {
         printf("取消结账。\n");
     }
 }
 
-// ========== 管理员菜单 ===========
-void adminMenu() {
-    while(1) {
-        printf("\n--- 管理员菜单 ---\n");
-        printf("1. 菜品管理\n");
-        printf("2. 餐桌管理\n");
-        printf("3. 退出\n");
-        printf("请选择: ");
-        int choice; scanf("%d", &choice);
-        if(choice == 1) {
-            while(1) {
-                printf("\n-- 菜品管理 --\n");
-                printf("1. 添加菜品\n");
-                printf("2. 查看菜品\n");
-                printf("3. 删除菜品\n");
-                printf("4. 修改菜品\n");
-                printf("5. 返回\n");
-                printf("请选择: ");
-                int c; scanf("%d", &c);
-                if(c == 1) addDish();
-                else if(c == 2) listDishes();
-                else if(c == 3) deleteDish();
-                else if(c == 4) modifyDish();
-                else if(c == 5) break;
-                else printf("无效选项\n");
-            }
-        } else if(choice == 2) {
-            while(1) {
-                printf("\n-- 餐桌管理 --\n");
-                printf("1. 添加餐桌\n");
-                printf("2. 查看餐桌\n");
-                printf("3. 删除餐桌\n");
-                printf("4. 修改餐桌\n");
-                printf("5. 返回\n");
-                printf("请选择: ");
-                int c; scanf("%d", &c);
-                if(c == 1) addTable();
-                else if(c == 2) listTables();
-                else if(c == 3) deleteTable();
-                else if(c == 4) modifyTable();
-                else if(c == 5) break;
-                else printf("无效选项\n");
-            }
-        } else if(choice == 3) {
-            printf("退出管理员模式。\n");
-            break;
-        } else {
-            printf("无效选项\n");
-        }
-    }
-}
-
-// ========== 用餐者菜单 ===========
+// 用餐者界面
 void userMenu() {
-    Customer* cust = userRegister();
+    Customer *cust = userRegister();
     if(cust == NULL) return;
 
+    int choice;
     while(1) {
         printf("\n--- 用餐者菜单 ---\n");
         printf("1. 浏览菜单\n");
         printf("2. 点餐\n");
         printf("3. 查看订单\n");
         printf("4. 结账\n");
-        printf("5. 退出\n");
+        printf("5. 退出用餐者模式\n");
         printf("请选择: ");
-        int choice; scanf("%d", &choice);
-        if(choice == 1) {
-            listDishes();
-        } else if(choice == 2) {
-            userOrder(cust);
-        } else if(choice == 3) {
-            showCustomerOrder(cust);
-        } else if(choice == 4) {
-            userPay(cust);
-        } else if(choice == 5) {
-            printf("退出用餐者模式。\n");
-            break;
-        } else {
-            printf("无效选项\n");
+        scanf("%d", &choice);
+
+        switch(choice) {
+            case 1: listDishes(); break;
+            case 2: userOrder(cust); break;
+            case 3: showCustomerOrder(cust); break;
+            case 4: userPay(cust); break;
+            case 5: printf("退出用餐者模式。\n"); return;
+            default: printf("无效选择。\n");
         }
     }
 }
 
-int main(int argc, char *argv[]) {
-    if(argc < 2) {
-        printf("用法: %s -admin|-user\n", argv[0]);
-        return 1;
+// ======= 管理员查询用餐者订单 =======
+void queryOrders() {
+    printf("请输入菜品名称或编号进行查询（输入0退出）: ");
+    char input[50];
+    scanf(" %[^\n]", input);
+    if(strcmp(input, "0") == 0) return;
+
+    int dishId = 0;
+    Dish *dish = NULL;
+    // 判断输入是否为编号
+    if(sscanf(input, "%d", &dishId) == 1) {
+        dish = findDishById(dishId);
+        if(dish == NULL) {
+            printf("没有找到对应菜品编号。\n");
+            return;
+        }
+    } else {
+        // 按名字查找
+        for(int i=0; i<dishCount; i++) {
+            if(strstr(dishes[i].name, input) != NULL) {
+                dish = &dishes[i];
+                break;
+            }
+        }
+        if(dish == NULL) {
+            printf("没有找到对应菜品名称。\n");
+            return;
+        }
     }
 
-    if(strcmp(argv[1], "-admin") == 0) {
-        printf("欢迎进入管理员模式。\n");
-        adminMenu();
-    } else if(strcmp(argv[1], "-user") == 0) {
-        printf("欢迎进入用餐者模式。\n");
-        userMenu();
-    } else {
-        printf("参数错误，请使用 -admin 或 -user\n");
-        return 1;
+    printf("查询菜品：%s（编号%d）\n", dish->name, dish->dishId);
+    int totalQty = 0;
+    float totalAmount = 0.0;
+
+    printf("用餐者点餐详情:\n");
+    printf("编号\t姓名\t桌号\t电话\t数量\t时间\n");
+    for(int i=0; i<customerCount; i++) {
+        Customer *c = &customers[i];
+        for(int j=0; j<c->orderCount; j++) {
+            if(c->orderList[j].dishId == dish->dishId) {
+                printf("%lld\t%s\t%d\t%s\t%d\t%s\n", c->customerId, c->name, c->tableId, c->phone, c->orderList[j].quantity, c->datetime);
+                totalQty += c->orderList[j].quantity;
+                totalAmount += c->orderList[j].quantity * dish->price;
+            }
+        }
+    }
+    printf("该菜品总点餐量：%d，总营业额：%.2f\n", totalQty, totalAmount);
+}
+
+// ======= 管理员界面 =======
+void adminMenu() {
+    int choice;
+    while(1) {
+        printf("\n--- 管理员菜单 ---\n");
+        printf("1. 菜品管理\n");
+        printf("2. 餐桌管理\n");
+        printf("3. 查询用餐者点餐情况及统计\n");
+        printf("4. 退出管理员模式\n");
+        printf("请选择: ");
+        scanf("%d", &choice);
+
+        if(choice == 1) {
+            int c2;
+            printf("\n--- 菜品管理 ---\n");
+            printf("1. 添加菜品\n");
+            printf("2. 删除菜品\n");
+            printf("3. 修改菜品\n");
+            printf("4. 查看菜品\n");
+            printf("5. 返回上级菜单\n");
+            printf("请选择: ");
+            scanf("%d", &c2);
+            switch(c2) {
+                case 1: addDish(); break;
+                case 2: deleteDish(); break;
+                case 3: modifyDish(); break;
+                case 4: listDishes(); break;
+                case 5: break;
+                default: printf("无效选择。\n");
+            }
+        } else if(choice == 2) {
+            int c2;
+            printf("\n--- 餐桌管理 ---\n");
+            printf("1. 添加餐桌\n");
+            printf("2. 删除餐桌\n");
+            printf("3. 修改餐桌\n");
+            printf("4. 查看餐桌\n");
+            printf("5. 返回上级菜单\n");
+            printf("请选择: ");
+            scanf("%d", &c2);
+            switch(c2) {
+                case 1: addTable(); break;
+                case 2: deleteTable(); break;
+                case 3: modifyTable(); break;
+                case 4: listTables(); break;
+                case 5: break;
+                default: printf("无效选择。\n");
+            }
+        } else if(choice == 3) {
+            queryOrders();
+        } else if(choice == 4) {
+            printf("退出管理员模式。\n");
+            break;
+        } else {
+            printf("无效选择。\n");
+        }
+    }
+}
+
+// ======= 主菜单 =======
+int main() {
+    while(1) {
+        printf("\n==== 欢迎进入餐厅点餐系统 ====\n");
+        printf("1. 管理员模式\n");
+        printf("2. 用餐者模式\n");
+        printf("3. 退出系统\n");
+        printf("请选择: ");
+        int choice;
+        scanf("%d", &choice);
+        if(choice == 1) {
+            adminMenu();
+        } else if(choice == 2) {
+            userMenu();
+        } else if(choice == 3) {
+            printf("谢谢使用，再见！\n");
+            break;
+        } else {
+            printf("无效选择。\n");
+        }
     }
     return 0;
 }
-
